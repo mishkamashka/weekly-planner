@@ -196,10 +196,10 @@ migrations/                    # goose .sql files
 Each phase should be shippable and dogfoodable on its own. Don't move to the next until the current one feels good for at least a few days.
 
 ### Phase 0 — Setup (½ day)
-- [ ] Create bot with [@BotFather](https://t.me/BotFather), grab token.
-- [ ] `go mod init`, pull dependencies.
-- [ ] `.env` with `BOT_TOKEN`, `DATABASE_PATH`, `OWNER_TELEGRAM_ID`.
-- [ ] Project skeleton, logging, graceful shutdown on SIGINT.
+- [x] Create bot with [@BotFather](https://t.me/BotFather), grab token.
+- [x] `go mod init`, pull dependencies.
+- [x] `.env` with `BOT_TOKEN`, `DATABASE_PATH`, `OWNER_TELEGRAM_ID`. _(OWNER_TELEGRAM_ID still needed)_
+- [x] Project skeleton, logging, graceful shutdown on SIGINT.
 - [ ] Implement `/start` and `/ping`. Verify round-trip works.
 
 **Done when:** you DM the bot `/ping` and get `pong`.

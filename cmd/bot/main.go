@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/mishkamashka/weekly-planner/internal/api"
+	"github.com/mishkamashka/weekly-planner/internal/bot"
 	"github.com/mishkamashka/weekly-planner/internal/config"
 	"github.com/mishkamashka/weekly-planner/internal/runner"
 )
@@ -25,9 +26,15 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	tgBot, err := bot.New(cfg.BotToken, cfg.OwnerTelegramID)
+	if err != nil {
+		slog.Error("failed to create bot", "err", err)
+		os.Exit(1)
+	}
+
 	multi := runner.NewMulti(
 		api.NewServer(cfg.HTTPPort),
-		// add more runners here: bot, scheduler, etc.
+		tgBot,
 	)
 
 	slog.Info("starting weekly-planner bot")
