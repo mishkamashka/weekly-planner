@@ -15,8 +15,19 @@ func mainKeyboard() *models.ReplyKeyboardMarkup {
 		Keyboard: [][]models.KeyboardButton{
 			{{Text: "➕ Add task"}, {Text: "📌 Today"}},
 			{{Text: "📋 Backlog"}, {Text: "📅 Week"}},
+			{{Text: "⚙️ Settings"}},
 		},
 		ResizeKeyboard: true,
+	}
+}
+
+func settingsKeyboard() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{{Text: "🌍 Change timezone", CallbackData: "set:tz"}},
+			{{Text: "⏰ Change morning time", CallbackData: "set:morning"}},
+			{{Text: "📅 Change Sunday ping time", CallbackData: "set:sunday"}},
+		},
 	}
 }
 

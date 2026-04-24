@@ -58,20 +58,181 @@ func (b *Bot) handleDefault(ctx context.Context, tg *tgbot.Bot, update *models.U
 	if update.Message == nil {
 		return
 	}
-	if b.getState(update.Message.From.ID) != stateWaitingForTask {
+	telegramID := update.Message.From.ID
+	text := strings.TrimSpace(update.Message.Text)
+
+	switch b.getState(telegramID) {
+	case stateWaitingForTask:
+		if text == "" {
+			return
+		}
+		b.setState(telegramID, stateIdle)
+		b.addTask(ctx, tg, update.Message.Chat.ID, telegramID, text)
+
+	case stateSettingTimezone:
+		b.setState(telegramID, stateIdle)
+		b.saveTimezone(ctx, tg, update.Message.Chat.ID, telegramID, text)
+
+	case stateSettingMorningTime:
+		b.setState(telegramID, stateIdle)
+		b.saveMorningTime(ctx, tg, update.Message.Chat.ID, telegramID, text)
+
+	case stateSettingSundayTime:
+		b.setState(telegramID, stateIdle)
+		b.saveSundayTime(ctx, tg, update.Message.Chat.ID, telegramID, text)
+
+	default:
 		tg.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID:      update.Message.Chat.ID,
 			Text:        "Tap ➕ Add task to add something to your backlog.",
 			ReplyMarkup: mainKeyboard(),
 		})
+	}
+}
+
+func (b *Bot) handleSettings(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
+	user, err := b.store.GetOrCreateUser(update.Message.From.ID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
 		return
 	}
-	title := strings.TrimSpace(update.Message.Text)
-	if title == "" {
+	tg.SendMessage(ctx, &tgbot.SendMessageParams{
+		ChatID: update.Message.Chat.ID,
+		Text: fmt.Sprintf("⚙️ <b>Settings</b>\n\n🌍 Timezone: <code>%s</code>\n⏰ Morning reminder: <code>%s</code>\n📅 Sunday ping: <code>%s</code>",
+			user.Timezone, user.MorningTime, user.SundayTime),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: settingsKeyboard(),
+	})
+}
+
+func (b *Bot) handleSettingsCallback(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
+	defer tg.AnswerCallbackQuery(ctx, &tgbot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
+
+	telegramID := update.CallbackQuery.From.ID
+	chatID := update.CallbackQuery.Message.Message.Chat.ID
+
+	switch update.CallbackQuery.Data {
+	case "set:tz":
+		b.setState(telegramID, stateSettingTimezone)
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Send your timezone (e.g. <code>Europe/Berlin</code>, <code>America/New_York</code>).",
+			ParseMode: models.ParseModeHTML,
+		})
+	case "set:morning":
+		b.setState(telegramID, stateSettingMorningTime)
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Send morning reminder time in <code>HH:MM</code> format (e.g. <code>08:00</code>).",
+			ParseMode: models.ParseModeHTML,
+		})
+	case "set:sunday":
+		b.setState(telegramID, stateSettingSundayTime)
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Send Sunday ping time in <code>HH:MM</code> format (e.g. <code>18:00</code>).",
+			ParseMode: models.ParseModeHTML,
+		})
+	}
+}
+
+func (b *Bot) saveTimezone(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, timezone string) {
+	if _, err := time.LoadLocation(timezone); err != nil {
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Invalid timezone. Try something like <code>Europe/Berlin</code> or <code>America/New_York</code>.",
+			ParseMode: models.ParseModeHTML,
+		})
+		b.setState(telegramID, stateSettingTimezone)
 		return
 	}
-	b.setState(update.Message.From.ID, stateIdle)
-	b.addTask(ctx, tg, update.Message.Chat.ID, update.Message.From.ID, title)
+	user, err := b.store.GetOrCreateUser(telegramID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
+		return
+	}
+	if err := b.store.UpdateTimezone(user.ID, timezone); err != nil {
+		slog.Error("updateTimezone failed", "err", err)
+		return
+	}
+	if b.sched != nil {
+		b.sched.ReloadUser(user.ID)
+	}
+	tg.SendMessage(ctx, &tgbot.SendMessageParams{
+		ChatID: chatID,
+		Text:   "✅ Timezone updated to <code>" + timezone + "</code>.",
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
+func (b *Bot) saveMorningTime(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, t string) {
+	if !isValidTime(t) {
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Invalid format. Send time as <code>HH:MM</code>, e.g. <code>08:00</code>.",
+			ParseMode: models.ParseModeHTML,
+		})
+		b.setState(telegramID, stateSettingMorningTime)
+		return
+	}
+	user, err := b.store.GetOrCreateUser(telegramID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
+		return
+	}
+	if err := b.store.UpdateMorningTime(user.ID, t); err != nil {
+		slog.Error("updateMorningTime failed", "err", err)
+		return
+	}
+	if b.sched != nil {
+		b.sched.ReloadUser(user.ID)
+	}
+	tg.SendMessage(ctx, &tgbot.SendMessageParams{
+		ChatID: chatID,
+		Text:   "✅ Morning reminder set to <code>" + t + "</code>.",
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
+func (b *Bot) saveSundayTime(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, t string) {
+	if !isValidTime(t) {
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   "Invalid format. Send time as <code>HH:MM</code>, e.g. <code>18:00</code>.",
+			ParseMode: models.ParseModeHTML,
+		})
+		b.setState(telegramID, stateSettingSundayTime)
+		return
+	}
+	user, err := b.store.GetOrCreateUser(telegramID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
+		return
+	}
+	if err := b.store.UpdateSundayTime(user.ID, t); err != nil {
+		slog.Error("updateSundayTime failed", "err", err)
+		return
+	}
+	if b.sched != nil {
+		b.sched.ReloadUser(user.ID)
+	}
+	tg.SendMessage(ctx, &tgbot.SendMessageParams{
+		ChatID: chatID,
+		Text:   "✅ Sunday ping set to <code>" + t + "</code>.",
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
+func isValidTime(t string) bool {
+	parts := strings.SplitN(t, ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	h, err1 := strconv.Atoi(parts[0])
+	m, err2 := strconv.Atoi(parts[1])
+	return err1 == nil && err2 == nil && h >= 0 && h <= 23 && m >= 0 && m <= 59
 }
 
 func (b *Bot) handleBacklog(ctx context.Context, tg *tgbot.Bot, update *models.Update) {

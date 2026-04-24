@@ -226,10 +226,10 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 **Done when:** you open `/today`, tick things off as you do them, and it feels satisfying.
 
 ### Phase 3 — Scheduled reminders (½–1 day)
-- [ ] Add `timezone` and `morning_time` columns (migration).
-- [ ] `/settings` command to set them.
-- [ ] Scheduler: each morning at local `morning_time`, DM `/today`'s content.
-- [ ] Scheduler: Sunday at local `sunday_time`, DM "Time to plan next week — tap /plan".
+- [x] Add `timezone` and `morning_time` columns (migration).
+- [x] ⚙️ Settings button to change timezone, morning time, Sunday ping time.
+- [x] Scheduler: each morning at local `morning_time`, DM today's task view with ✅ buttons.
+- [x] Scheduler: Sunday at local `sunday_time`, DM planning nudge.
 
 **Done when:** the bot pings you unprompted at 8am with your list.
 

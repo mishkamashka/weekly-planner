@@ -11,6 +11,7 @@ import (
 	"github.com/mishkamashka/weekly-planner/internal/bot"
 	"github.com/mishkamashka/weekly-planner/internal/config"
 	"github.com/mishkamashka/weekly-planner/internal/runner"
+	"github.com/mishkamashka/weekly-planner/internal/scheduler"
 	"github.com/mishkamashka/weekly-planner/internal/store"
 )
 
@@ -39,9 +40,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	sched := scheduler.New(db, tgBot.SendToUser, tgBot.SendDayView)
+	tgBot.SetScheduler(sched)
+
 	multi := runner.NewMulti(
 		api.NewServer(cfg.HTTPPort),
 		tgBot,
+		sched,
 	)
 
 	slog.Info("starting weekly-planner bot")
