@@ -198,16 +198,18 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 ### Phase 0 — Setup (½ day)
 - [x] Create bot with [@BotFather](https://t.me/BotFather), grab token.
 - [x] `go mod init`, pull dependencies.
-- [x] `.env` with `BOT_TOKEN`, `DATABASE_PATH`, `OWNER_TELEGRAM_ID`. _(OWNER_TELEGRAM_ID still needed)_
+- [x] `.env` with `BOT_TOKEN`, `DATABASE_PATH`, `OWNER_TELEGRAM_ID`.
 - [x] Project skeleton, logging, graceful shutdown on SIGINT.
-- [ ] Implement `/start` and `/ping`. Verify round-trip works.
+- [x] Implement `/start` and `/ping`. Verify round-trip works.
 
 **Done when:** you DM the bot `/ping` and get `pong`.
 
 ### Phase 1 — Backlog (½–1 day)
-- [ ] SQLite + goose wired up. First migration creates `users` and `tasks`.
-- [ ] On `/start` or first message: auto-create a `users` row.
-- [ ] `/add <text>` and plain-text message → insert task with status `backlog`.
+- [x] SQLite + goose wired up. First migration creates `users` and `tasks`.
+- [x] On `/start` or first message: auto-create a `users` row.
+- [x] Persistent reply keyboard with "➕ Add task" button.
+- [x] Tapping the button puts bot in "waiting for task" state; user replies with text → added to backlog.
+- [x] `/add <text>` shortcut also works.
 - [ ] `/backlog` renders list with per-row inline keyboard: `Mon Tue Wed Thu Fri Sat Sun Archive`.
 - [ ] Day button → creates `assignments` row for the current week, flips task status to `assigned`.
 
@@ -261,6 +263,8 @@ Then fix the top 3.
 ---
 
 ## v2 ideas (deferred)
+
+- **Voice task input.** When in "waiting for task" state, accept voice messages → download audio from Telegram → transcribe via OpenAI Whisper → add as task title. Needs `OPENAI_API_KEY` in env.
 
 - **Sunday retrospective + capacity learning.** Show planned vs done; track rolling 4-week average completion rate; suggest next week's budget.
 - **Priorities / effort tags.** `#p1`, `~30m` in the task title; bot parses and displays.

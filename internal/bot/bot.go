@@ -3,20 +3,39 @@ package bot
 import (
 	"context"
 	"log/slog"
+	"sync"
 
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/mishkamashka/weekly-planner/internal/store"
+)
+
+type userState int
+
+const (
+	stateIdle userState = iota
+	stateWaitingForTask
 )
 
 type Bot struct {
 	tg      *tgbot.Bot
 	ownerID int64
+	store   *store.Store
+	mu      sync.Mutex
+	states  map[int64]userState
 }
 
-func New(token string, ownerID int64) (*Bot, error) {
-	b := &Bot{ownerID: ownerID}
+func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
+	b := &Bot{
+		ownerID: ownerID,
+		store:   store,
+		states:  make(map[int64]userState),
+	}
 
-	tg, err := tgbot.New(token, tgbot.WithMiddlewares(b.ownerOnly()))
+	tg, err := tgbot.New(token,
+		tgbot.WithMiddlewares(b.ownerOnly()),
+		tgbot.WithDefaultHandler(b.handleDefault),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -24,6 +43,8 @@ func New(token string, ownerID int64) (*Bot, error) {
 
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/ping", tgbot.MatchTypeExact, b.handlePing)
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/start", tgbot.MatchTypeExact, b.handleStart)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "➕ Add task", tgbot.MatchTypeExact, b.handleAddTaskPrompt)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/add", tgbot.MatchTypePrefix, b.handleAddCommand)
 
 	return b, nil
 }
@@ -55,16 +76,21 @@ func (b *Bot) isOwner(update *models.Update) bool {
 	return false
 }
 
-func (b *Bot) handlePing(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
-	tg.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text:   "pong",
-	})
+func (b *Bot) setState(telegramID int64, s userState) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.states[telegramID] = s
 }
 
-func (b *Bot) handleStart(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
-	tg.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text:   "Hey! I'm your weekly planner bot. Send /ping to check I'm alive.",
-	})
+func (b *Bot) getState(telegramID int64) userState {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.states[telegramID]
+}
+
+func mainKeyboard() *models.ReplyKeyboardMarkup {
+	return &models.ReplyKeyboardMarkup{
+		Keyboard:       [][]models.KeyboardButton{{{Text: "➕ Add task"}}},
+		ResizeKeyboard: true,
+	}
 }
