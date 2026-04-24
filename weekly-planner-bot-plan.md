@@ -217,10 +217,11 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 **Done when:** you can add tasks and shove them around the week via buttons.
 
 ### Phase 2 — Daily view + done buttons (½ day)
-- [ ] `/today` query: today's assignments for this user.
-- [ ] Each task rendered as a line with a ✅ button.
-- [ ] Tapping ✅ sets `assignments.completed = 1`, edits the message in place so the line shows ~~strikethrough~~.
-- [ ] Tapping a day in week view shows a task list with per-task actions: move back to backlog, move to another day, mark done.
+- [x] `/today` query: today's assignments for this user.
+- [x] Each task rendered as a line with a ✅ button.
+- [x] Tapping ✅ sets `assignments.completed = 1`, edits the message in place so the line shows ~~strikethrough~~.
+- [x] Tapping a day in week view shows a task list with per-task actions: move back to backlog, mark done.
+- [x] Batch task input: newline-separated input adds multiple tasks at once.
 
 **Done when:** you open `/today`, tick things off as you do them, and it feels satisfying.
 
@@ -268,7 +269,8 @@ Then fix the top 3.
 - **Voice task input.** When in "waiting for task" state, accept voice messages → download audio from Telegram → transcribe via OpenAI Whisper → add as task title. Needs `OPENAI_API_KEY` in env.
 
 - **Sunday retrospective + capacity learning.** Show planned vs done; track rolling 4-week average completion rate; suggest next week's budget.
-- **Priorities / effort tags.** `#p1`, `~30m` in the task title; bot parses and displays.
+- **Priorities.** Parse `#p1`/`#p2`/`#p3` (or `!` prefix) from task title; sort backlog by priority so important tasks surface first. UX TBD — options: inline buttons on add, or just title convention.
+- **Backlog UX at scale.** Once backlog exceeds ~10 tasks the current "one message per task" approach gets noisy. Options to consider: paginated list with prev/next buttons, grouped by priority, or a single message with a scrollable numbered list + separate action prompt.
 - **Carry-over automation.** Unchecked items Sunday → back to backlog or auto-assigned to same day next week.
 - **Inline backlog assignment from anywhere.** When you add a task, immediately ask "which day?"
 - **Weekly export.** `/export` dumps the week as markdown or CSV.

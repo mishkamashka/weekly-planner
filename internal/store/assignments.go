@@ -29,3 +29,27 @@ func (s *Store) ArchiveTask(taskID int64) error {
 	_, err := s.db.Exec(`UPDATE tasks SET status = 'archived' WHERE id = ?`, taskID)
 	return err
 }
+
+func (s *Store) CompleteAssignment(assignmentID int64) error {
+	_, err := s.db.Exec(
+		`UPDATE assignments SET completed = 1, completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		assignmentID,
+	)
+	return err
+}
+
+func (s *Store) MoveToBacklog(assignmentID, taskID int64) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM assignments WHERE id = ?`, assignmentID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE tasks SET status = 'backlog' WHERE id = ?`, taskID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

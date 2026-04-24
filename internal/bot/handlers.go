@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -23,7 +24,6 @@ func (b *Bot) handleStart(ctx context.Context, tg *tgbot.Bot, update *models.Upd
 	if _, err := b.store.GetOrCreateUser(from.ID, from.FirstName); err != nil {
 		slog.Error("getOrCreateUser failed", "err", err)
 	}
-
 	tg.SendMessage(ctx, &tgbot.SendMessageParams{
 		ChatID:      update.Message.Chat.ID,
 		Text:        "Hey! I'm your weekly planner bot.\n\nTap ➕ to add tasks to your backlog.",
@@ -80,13 +80,11 @@ func (b *Bot) handleBacklog(ctx context.Context, tg *tgbot.Bot, update *models.U
 		slog.Error("getOrCreateUser failed", "err", err)
 		return
 	}
-
 	tasks, err := b.store.GetBacklog(user.ID)
 	if err != nil {
 		slog.Error("getBacklog failed", "err", err)
 		return
 	}
-
 	if len(tasks) == 0 {
 		tg.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID:      update.Message.Chat.ID,
@@ -95,7 +93,6 @@ func (b *Bot) handleBacklog(ctx context.Context, tg *tgbot.Bot, update *models.U
 		})
 		return
 	}
-
 	for _, task := range tasks {
 		tg.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID:      update.Message.Chat.ID,
@@ -124,8 +121,8 @@ func (b *Bot) handleTaskCallback(ctx context.Context, tg *tgbot.Bot, update *mod
 	if msg == nil {
 		return
 	}
-	var label string
 
+	var label string
 	if action == "a" {
 		if err := b.store.ArchiveTask(taskID); err != nil {
 			slog.Error("archiveTask failed", "err", err)
@@ -167,6 +164,10 @@ var dayIndex = map[string]int{
 
 var dayFullName = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
 
+func (b *Bot) handleToday(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
+	b.sendDayView(ctx, tg, update.Message.Chat.ID, update.Message.From.ID, todayDayOfWeek())
+}
+
 func (b *Bot) handleWeek(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
 	tg.SendMessage(ctx, &tgbot.SendMessageParams{
 		ChatID:      update.Message.Chat.ID,
@@ -188,33 +189,142 @@ func (b *Bot) handleDayButton(ctx context.Context, tg *tgbot.Bot, update *models
 	if !ok {
 		return
 	}
+	b.sendDayView(ctx, tg, update.Message.Chat.ID, update.Message.From.ID, dayOfWeek)
+}
 
-	user, err := b.store.GetOrCreateUser(update.Message.From.ID, "")
+func (b *Bot) handleCompleteCallback(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
+	defer tg.AnswerCallbackQuery(ctx, &tgbot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
+
+	// ck:<assignment_id>:<day_of_week>
+	parts := strings.SplitN(update.CallbackQuery.Data, ":", 3)
+	if len(parts) != 3 {
+		return
+	}
+	assignmentID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return
+	}
+	dayOfWeek, err := strconv.Atoi(parts[2])
+	if err != nil || dayOfWeek < 0 || dayOfWeek > 6 {
+		return
+	}
+
+	if err := b.store.CompleteAssignment(assignmentID); err != nil {
+		slog.Error("completeAssignment failed", "err", err)
+		return
+	}
+	b.editDayView(ctx, tg, update, dayOfWeek)
+}
+
+func (b *Bot) handleBacklogCallback(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
+	defer tg.AnswerCallbackQuery(ctx, &tgbot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
+
+	// bl:<assignment_id>:<task_id>:<day_of_week>
+	parts := strings.SplitN(update.CallbackQuery.Data, ":", 4)
+	if len(parts) != 4 {
+		return
+	}
+	assignmentID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return
+	}
+	taskID, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		return
+	}
+	dayOfWeek, err := strconv.Atoi(parts[3])
+	if err != nil || dayOfWeek < 0 || dayOfWeek > 6 {
+		return
+	}
+
+	if err := b.store.MoveToBacklog(assignmentID, taskID); err != nil {
+		slog.Error("moveToBacklog failed", "err", err)
+		return
+	}
+	b.editDayView(ctx, tg, update, dayOfWeek)
+}
+
+func (b *Bot) sendDayView(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, dayOfWeek int) {
+	user, err := b.store.GetOrCreateUser(telegramID, "")
 	if err != nil {
 		slog.Error("getOrCreateUser failed", "err", err)
 		return
 	}
-
 	tasks, err := b.store.GetDayTasks(user.ID, currentWeekMonday(), dayOfWeek)
 	if err != nil {
 		slog.Error("getDayTasks failed", "err", err)
 		return
 	}
+	tg.SendMessage(ctx, &tgbot.SendMessageParams{
+		ChatID:    chatID,
+		Text:      dayTasksText(dayFullName[dayOfWeek], tasks),
+		ParseMode: models.ParseModeHTML,
+		ReplyMarkup: dayTasksKeyboard(tasks, dayOfWeek),
+	})
+}
+
+func (b *Bot) editDayView(ctx context.Context, tg *tgbot.Bot, update *models.Update, dayOfWeek int) {
+	msg := update.CallbackQuery.Message.Message
+	if msg == nil {
+		return
+	}
+	user, err := b.store.GetOrCreateUser(update.CallbackQuery.From.ID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
+		return
+	}
+	tasks, err := b.store.GetDayTasks(user.ID, currentWeekMonday(), dayOfWeek)
+	if err != nil {
+		slog.Error("getDayTasks failed", "err", err)
+		return
+	}
+	_, err = tg.EditMessageText(ctx, &tgbot.EditMessageTextParams{
+		ChatID:      msg.Chat.ID,
+		MessageID:   msg.ID,
+		Text:        dayTasksText(dayFullName[dayOfWeek], tasks),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: dayTasksKeyboard(tasks, dayOfWeek),
+	})
+	if err != nil {
+		slog.Error("editMessageText failed", "err", err)
+	}
+}
+
+func (b *Bot) addTask(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, input string) {
+	user, err := b.store.GetOrCreateUser(telegramID, "")
+	if err != nil {
+		slog.Error("getOrCreateUser failed", "err", err)
+		return
+	}
+
+	var titles []string
+	for _, line := range strings.Split(input, "\n") {
+		if t := strings.TrimSpace(line); t != "" {
+			titles = append(titles, t)
+		}
+	}
+
+	for _, title := range titles {
+		if _, err := b.store.AddTask(user.ID, title); err != nil {
+			slog.Error("addTask failed", "err", err, "title", title)
+		}
+	}
 
 	var text string
-	if len(tasks) == 0 {
-		text = dayFullName[dayOfWeek] + ": nothing planned."
+	if len(titles) == 1 {
+		text = "Added to backlog: " + titles[0]
 	} else {
-		lines := make([]string, len(tasks))
-		for i, t := range tasks {
-			lines[i] = "• " + t.Title
-		}
-		text = dayFullName[dayOfWeek] + ":\n" + strings.Join(lines, "\n")
+		text = fmt.Sprintf("Added %d tasks to backlog.", len(titles))
 	}
 
 	tg.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text:   text,
+		ChatID:      chatID,
+		Text:        text,
+		ReplyMarkup: mainKeyboard(),
 	})
 }
 
@@ -227,19 +337,10 @@ func currentWeekMonday() time.Time {
 	return now.AddDate(0, 0, -(weekday - 1)).Truncate(24 * time.Hour)
 }
 
-func (b *Bot) addTask(ctx context.Context, tg *tgbot.Bot, chatID, telegramID int64, title string) {
-	user, err := b.store.GetOrCreateUser(telegramID, "")
-	if err != nil {
-		slog.Error("getOrCreateUser failed", "err", err)
-		return
+func todayDayOfWeek() int {
+	w := int(time.Now().Weekday())
+	if w == 0 {
+		return 6
 	}
-	if _, err := b.store.AddTask(user.ID, title); err != nil {
-		slog.Error("addTask failed", "err", err)
-		return
-	}
-	tg.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        "Added to backlog: " + title,
-		ReplyMarkup: mainKeyboard(),
-	})
+	return w - 1
 }

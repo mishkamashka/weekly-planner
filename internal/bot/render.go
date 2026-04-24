@@ -2,14 +2,19 @@ package bot
 
 import (
 	"fmt"
+	"html"
+	"strconv"
+	"strings"
 
 	"github.com/go-telegram/bot/models"
+	"github.com/mishkamashka/weekly-planner/internal/store"
 )
 
 func mainKeyboard() *models.ReplyKeyboardMarkup {
 	return &models.ReplyKeyboardMarkup{
 		Keyboard: [][]models.KeyboardButton{
-			{{Text: "➕ Add task"}, {Text: "📋 Backlog"}, {Text: "📅 Week"}},
+			{{Text: "➕ Add task"}, {Text: "📌 Today"}},
+			{{Text: "📋 Backlog"}, {Text: "📅 Week"}},
 		},
 		ResizeKeyboard: true,
 	}
@@ -46,4 +51,45 @@ func taskKeyboard(taskID int64) *models.InlineKeyboardMarkup {
 			},
 		},
 	}
+}
+
+func dayTasksText(dayName string, tasks []*store.AssignedTask) string {
+	if len(tasks) == 0 {
+		return "<b>" + dayName + "</b>\n\nNothing planned."
+	}
+	lines := []string{"<b>" + dayName + "</b>", ""}
+	for _, t := range tasks {
+		title := html.EscapeString(t.Title)
+		if t.Completed {
+			lines = append(lines, "• <s>"+title+"</s>")
+		} else {
+			lines = append(lines, "• "+title)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func dayTasksKeyboard(tasks []*store.AssignedTask, dayOfWeek int) *models.InlineKeyboardMarkup {
+	day := strconv.Itoa(dayOfWeek)
+	rows := [][]models.InlineKeyboardButton{}
+	for _, t := range tasks {
+		if t.Completed {
+			continue
+		}
+		aid := strconv.FormatInt(t.AssignmentID, 10)
+		tid := strconv.FormatInt(t.TaskID, 10)
+		rows = append(rows, []models.InlineKeyboardButton{
+			{Text: "✅ " + truncate(t.Title, 25), CallbackData: "ck:" + aid + ":" + day},
+			{Text: "↩ backlog", CallbackData: "bl:" + aid + ":" + tid + ":" + day},
+		})
+	}
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func truncate(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max-1]) + "…"
 }
