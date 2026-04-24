@@ -210,8 +210,9 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 - [x] Persistent reply keyboard with "➕ Add task" button.
 - [x] Tapping the button puts bot in "waiting for task" state; user replies with text → added to backlog.
 - [x] `/add <text>` shortcut also works.
-- [ ] `/backlog` renders list with per-row inline keyboard: `Mon Tue Wed Thu Fri Sat Sun Archive`.
-- [ ] Day button → creates `assignments` row for the current week, flips task status to `assigned`.
+- [x] `/backlog` renders list with per-row inline keyboard: `Mon Tue Wed Thu Fri Sat Sun Archive`.
+- [x] Day button → creates `assignments` row for the current week, flips task status to `assigned`.
+- [x] "📅 Week" button shows day picker; tapping a day lists that day's tasks.
 
 **Done when:** you can add tasks and shove them around the week via buttons.
 
@@ -219,7 +220,7 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 - [ ] `/today` query: today's assignments for this user.
 - [ ] Each task rendered as a line with a ✅ button.
 - [ ] Tapping ✅ sets `assignments.completed = 1`, edits the message in place so the line shows ~~strikethrough~~.
-- [ ] `/week` shows the Mon–Sun board.
+- [ ] Tapping a day in week view shows a task list with per-task actions: move back to backlog, move to another day, mark done.
 
 **Done when:** you open `/today`, tick things off as you do them, and it feels satisfying.
 

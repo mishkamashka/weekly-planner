@@ -45,6 +45,14 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/start", tgbot.MatchTypeExact, b.handleStart)
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "➕ Add task", tgbot.MatchTypeExact, b.handleAddTaskPrompt)
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/add", tgbot.MatchTypePrefix, b.handleAddCommand)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/backlog", tgbot.MatchTypeExact, b.handleBacklog)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "📋 Backlog", tgbot.MatchTypeExact, b.handleBacklog)
+	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "t:", tgbot.MatchTypePrefix, b.handleTaskCallback)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "📅 Week", tgbot.MatchTypeExact, b.handleWeek)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "← Back", tgbot.MatchTypeExact, b.handleBack)
+	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
+		tg.RegisterHandler(tgbot.HandlerTypeMessageText, day, tgbot.MatchTypeExact, b.handleDayButton)
+	}
 
 	return b, nil
 }
@@ -88,9 +96,3 @@ func (b *Bot) getState(telegramID int64) userState {
 	return b.states[telegramID]
 }
 
-func mainKeyboard() *models.ReplyKeyboardMarkup {
-	return &models.ReplyKeyboardMarkup{
-		Keyboard:       [][]models.KeyboardButton{{{Text: "➕ Add task"}}},
-		ResizeKeyboard: true,
-	}
-}
