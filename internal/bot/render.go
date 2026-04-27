@@ -15,7 +15,7 @@ func mainKeyboard() *models.ReplyKeyboardMarkup {
 		Keyboard: [][]models.KeyboardButton{
 			{{Text: "➕ Add task"}, {Text: "📌 Today"}},
 			{{Text: "📋 Backlog"}, {Text: "📅 Week"}},
-			{{Text: "⚙️ Settings"}},
+			{{Text: "📆 Plan week"}, {Text: "⚙️ Settings"}},
 		},
 		ResizeKeyboard: true,
 	}
@@ -95,6 +95,29 @@ func dayTasksKeyboard(tasks []*store.AssignedTask, dayOfWeek int) *models.Inline
 		})
 	}
 	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func planNextKeyboard(taskID int64) *models.InlineKeyboardMarkup {
+	id := fmt.Sprintf("%d", taskID)
+	cb := func(action string) string { return "pn:" + id + ":" + action }
+
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "Mon", CallbackData: cb("0")},
+				{Text: "Tue", CallbackData: cb("1")},
+				{Text: "Wed", CallbackData: cb("2")},
+				{Text: "Thu", CallbackData: cb("3")},
+				{Text: "Fri", CallbackData: cb("4")},
+			},
+			{
+				{Text: "Sat", CallbackData: cb("5")},
+				{Text: "Sun", CallbackData: cb("6")},
+				{Text: "⏭ Skip", CallbackData: cb("skip")},
+				{Text: "🗄 Archive", CallbackData: cb("a")},
+			},
+		},
+	}
 }
 
 func truncate(s string, max int) string {

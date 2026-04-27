@@ -59,10 +59,13 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	for _, day := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
 		tg.RegisterHandler(tgbot.HandlerTypeMessageText, day, tgbot.MatchTypeExact, b.handleDayButton)
 	}
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/plan", tgbot.MatchTypeExact, b.handlePlan)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "📆 Plan week", tgbot.MatchTypeExact, b.handlePlan)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "t:", tgbot.MatchTypePrefix, b.handleTaskCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "ck:", tgbot.MatchTypePrefix, b.handleCompleteCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "bl:", tgbot.MatchTypePrefix, b.handleBacklogCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "set:", tgbot.MatchTypePrefix, b.handleSettingsCallback)
+	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "pn:", tgbot.MatchTypePrefix, b.handlePlanNextCallback)
 
 	return b, nil
 }

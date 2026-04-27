@@ -300,7 +300,7 @@ func (b *Bot) handleTaskCallback(ctx context.Context, tg *tgbot.Bot, update *mod
 			slog.Error("getOrCreateUser failed", "err", err)
 			return
 		}
-		if err := b.store.AssignTask(taskID, user.ID, currentWeekMonday(), dayOfWeek); err != nil {
+		if err := b.store.AssignTask(taskID, user.ID, weekMondayForDay(dayOfWeek), dayOfWeek); err != nil {
 			slog.Error("assignTask failed", "err", err)
 			return
 		}
@@ -493,9 +493,23 @@ func currentWeekMonday() time.Time {
 	now := time.Now()
 	weekday := int(now.Weekday())
 	if weekday == 0 {
-		weekday = 7
+		// Sunday: treat as the eve of next Monday, not day 7 of the past week
+		return now.AddDate(0, 0, 1).Truncate(24 * time.Hour)
 	}
 	return now.AddDate(0, 0, -(weekday - 1)).Truncate(24 * time.Hour)
+}
+
+// weekMondayForDay returns the Monday of the week in which dayOfWeek (0=Mon…6=Sun)
+// falls on today or in the future. If that day has already passed this week, it
+// returns next week's Monday instead.
+func weekMondayForDay(dayOfWeek int) time.Time {
+	monday := currentWeekMonday()
+	target := monday.AddDate(0, 0, dayOfWeek)
+	today := time.Now().Truncate(24 * time.Hour)
+	if target.Before(today) {
+		return monday.AddDate(0, 0, 7)
+	}
+	return monday
 }
 
 func todayDayOfWeek() int {

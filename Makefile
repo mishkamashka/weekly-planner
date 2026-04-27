@@ -23,7 +23,7 @@ build-linux:
 deploy: build-linux
 	@if [ -z "$(SERVER)" ]; then echo "usage: make deploy SERVER=user@host"; exit 1; fi
 	scp $(LINUX) $(SERVER):/tmp/bot-new
-	ssh $(SERVER) "mv /tmp/bot-new /usr/local/bin/bot && systemctl restart weekly-planner"
+	ssh $(SERVER) "sudo mv /tmp/bot-new /usr/local/bin/weekly-planner-bot && sudo restorecon /usr/local/bin/weekly-planner-bot && sudo systemctl restart weekly-planner"
 
 ## tidy: tidy go modules
 tidy:
