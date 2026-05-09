@@ -424,7 +424,7 @@ func (b *Bot) sendDayView(ctx context.Context, tg *tgbot.Bot, chatID, telegramID
 		slog.Error("getOrCreateUser failed", "err", err)
 		return
 	}
-	tasks, err := b.store.GetDayTasks(user.ID, currentWeekMonday(), dayOfWeek)
+	tasks, err := b.store.GetDayTasks(user.ID, weekMondayForDay(dayOfWeek), dayOfWeek)
 	if err != nil {
 		slog.Error("getDayTasks failed", "err", err)
 		return
@@ -447,7 +447,7 @@ func (b *Bot) editDayView(ctx context.Context, tg *tgbot.Bot, update *models.Upd
 		slog.Error("getOrCreateUser failed", "err", err)
 		return
 	}
-	tasks, err := b.store.GetDayTasks(user.ID, currentWeekMonday(), dayOfWeek)
+	tasks, err := b.store.GetDayTasks(user.ID, weekMondayForDay(dayOfWeek), dayOfWeek)
 	if err != nil {
 		slog.Error("getDayTasks failed", "err", err)
 		return

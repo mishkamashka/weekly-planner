@@ -33,12 +33,24 @@ func settingsKeyboard() *models.InlineKeyboardMarkup {
 }
 
 func weekReplyKeyboard() *models.ReplyKeyboardMarkup {
+	allDays := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	today := todayDayOfWeek()
+	var btns []models.KeyboardButton
+	for i := 0; i < 7; i++ {
+		btns = append(btns, models.KeyboardButton{Text: allDays[(today+i)%7]})
+	}
+	var rows [][]models.KeyboardButton
+	for len(btns) > 0 {
+		n := 4
+		if n > len(btns) {
+			n = len(btns)
+		}
+		rows = append(rows, btns[:n])
+		btns = btns[n:]
+	}
+	rows = append(rows, []models.KeyboardButton{{Text: "← Back"}})
 	return &models.ReplyKeyboardMarkup{
-		Keyboard: [][]models.KeyboardButton{
-			{{Text: "Mon"}, {Text: "Tue"}, {Text: "Wed"}, {Text: "Thu"}},
-			{{Text: "Fri"}, {Text: "Sat"}, {Text: "Sun"}},
-			{{Text: "← Back"}},
-		},
+		Keyboard:       rows,
 		ResizeKeyboard: true,
 	}
 }
