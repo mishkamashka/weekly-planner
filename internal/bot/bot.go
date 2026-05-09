@@ -3,7 +3,9 @@ package bot
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync"
+	"time"
 
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -38,6 +40,7 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	}
 
 	tg, err := tgbot.New(token,
+		tgbot.WithHTTPClient(30*time.Second, &http.Client{Timeout: 60 * time.Second}),
 		tgbot.WithMiddlewares(b.ownerOnly()),
 		tgbot.WithDefaultHandler(b.handleDefault),
 	)

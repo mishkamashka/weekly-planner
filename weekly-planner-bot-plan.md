@@ -38,12 +38,13 @@ A personal weekly-planner Telegram bot, built in Go, that helps you distribute b
 
 The bot needs to be **always-on** so scheduled notifications fire. That rules out anything that sleeps on idle (Render free, Railway free, Cloud Run without min-instance).
 
-**Recommendation: Oracle Cloud Infrastructure "Always Free" — AMD Micro, Frankfurt (`eu-frankfurt-1`).**
+**Actual deployment: Oracle Cloud Infrastructure "Always Free" — AMD Micro, Ashburn (`us-ashburn-1`).**
+
+Chosen Ashburn over Frankfurt because Always Free tier capacity (especially for AMD Micro) is more reliably available in Ashburn. Data residency doesn't matter for this project.
 
 Verified against Oracle's current Always Free docs:
 - **VM.Standard.E2.1.Micro** shape: 1/8 OCPU + 1 GB RAM, 50 GB boot volume (from a 200 GB total block storage pool)
 - **10 TB/month** outbound data transfer (huge compared to GCP's 1 GB)
-- Low European latency (Frankfurt is 1 hop from most of Central/Western Europe)
 - No end date on Always Free
 - Bonus you won't use but comes free: 20 GB object storage, 1 flexible load balancer, 2 Autonomous Databases
 
@@ -59,8 +60,8 @@ The deciding factor: when Oracle's 30-day $300 trial ends, your account **automa
     - **Mitigation A (shape choice):** Use the **AMD Micro** — it has no memory utilization check, so hitting one of the three thresholds is easier.
     - **Mitigation B (keepalive):** run a lightweight internal cron every ~5 minutes (touch a file, do a trivial computation, ping `api.telegram.org`) to keep CPU/network averages above 20%. Cheap insurance.
     - Do both for the first few months.
-2. **Home region is permanent.** You pick it once during signup and can never change it. **Pick `eu-frankfurt-1` (Frankfurt) or `eu-amsterdam-1` (Amsterdam).**
-3. **A1 (ARM) capacity is spotty.** "Out of host capacity" errors are routine for A1 in Frankfurt. AMD Micro is reliably available. If you later want A1 for headroom, expect to retry provisioning.
+2. **Home region is permanent.** You pick it once during signup and can never change it. Picked `us-ashburn-1` (Ashburn) for better Always Free capacity.
+3. **A1 (ARM) capacity is spotty.** "Out of host capacity" errors are routine for A1. AMD Micro is reliably available. If you later want A1 for headroom, expect to retry provisioning.
 4. **Console is dense.** You'll touch it mostly during initial setup. Bookmark the Compute Instances page and ignore the rest.
 5. **Outbound port 25 is blocked.** Doesn't affect Telegram; mentioned only because people sometimes try to add `msmtp` for alerts — use Telegram DM or webhooks for alerts instead.
 
@@ -79,15 +80,42 @@ The deciding factor: when Oracle's 30-day $300 trial ends, your account **automa
 
 If friends-phase turns into something real and Oracle's reclamation rules get annoying, a **Hetzner CX22 (~€4/mo, Falkenstein/Helsinki)** is the natural next step. Same deployment shape — systemd + SQLite file — just with a better SLA and no reclamation games.
 
-### Deployment shape (Oracle AMD Micro)
+### Deployment shape (Oracle AMD Micro) — actual setup
 
-- Ubuntu 22.04 LTS (Always Free-eligible image — no licensing fees)
-- systemd unit running the Go binary as a non-root user
-- SQLite file in `/var/lib/weekly-planner/bot.db`
-- Nightly `sqlite3 bot.db ".backup bot.db.bak"` + rotate
+- **OS: Oracle Linux 9** (not Ubuntu — Oracle provisions OL9 by default; use `opc` not `ubuntu` as SSH user)
+- systemd unit running the Go binary as `opc` user
+- SQLite file in `/var/lib/weekly-planner/`
+- Binary at `/usr/local/bin/weekly-planner-bot`
+- Env file at `/etc/weekly-planner.env`
+- Nightly `sqlite3 bot.db ".backup bot.db.bak"` + rotate (TODO)
 - Optional: upload weekly backup to the free 20 GB Object Storage bucket
 - Internal 5-minute keepalive job inside the bot process to dodge idle reclamation
 - Security list / firewall: only allow outbound 443 (Telegram API) and 22 from your home IP for SSH. No inbound needed.
+
+#### Setup gotchas encountered
+
+1. **1 GB RAM is not enough for `dnf update` or `dnf install golang`** — OOM-kills the instance. Fix: add 1 GB swap first, then install Go via tarball (not dnf):
+   ```bash
+   sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+   echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+   curl -OL https://go.dev/dl/go1.22.5.linux-amd64.tar.gz
+   sudo tar -C /usr/local -xzf go1.22.5.linux-amd64.tar.gz
+   echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+   ```
+2. **Public IP not auto-assigned** — instance created without a public IP. Had to go to Networking tab → VNIC → IP Administration → assign a reserved IP to the primary private IP.
+3. **SELinux blocks systemd from reading env files and executing binaries moved from home dir.** Fix with `restorecon`:
+   ```bash
+   sudo restorecon -v /etc/weekly-planner.env
+   sudo restorecon -v /usr/local/bin/weekly-planner-bot
+   ```
+4. **`/var/lib/weekly-planner` owned by root** — service runs as `opc` and can't write the SQLite file. Fix: `sudo chown opc:opc /var/lib/weekly-planner`
+
+#### Deploy update script (run locally)
+```bash
+GOOS=linux GOARCH=amd64 go build -o weekly-planner-bot ./cmd/bot/
+scp -i ~/.ssh/id_ed25519 weekly-planner-bot opc@143.47.97.133:~
+ssh -i ~/.ssh/id_ed25519 opc@143.47.97.133 "sudo mv ~/weekly-planner-bot /usr/local/bin/ && sudo systemctl restart weekly-planner"
+```
 
 ---
 

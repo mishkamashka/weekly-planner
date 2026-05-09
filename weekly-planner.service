@@ -1,0 +1,16 @@
+[Unit]
+Description=Weekly Planner Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/weekly-planner-bot
+EnvironmentFile=/etc/weekly-planner/env
+WorkingDirectory=/var/lib/weekly-planner
+Restart=always
+RestartSec=10
+OOMPolicy=kill
+MemoryMax=350M
+
+[Install]
+WantedBy=multi-user.target

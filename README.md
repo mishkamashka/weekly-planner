@@ -4,77 +4,53 @@ Personal Telegram bot for weekly task planning.
 
 ## Configuration
 
-Create a `.env` file (or set environment variables):
+Environment variables (set in `/etc/weekly-planner/env` on server, or `.env` locally):
 
 ```
 BOT_TOKEN=<telegram bot token>
 OWNER_TELEGRAM_ID=<your telegram user id>
 DATABASE_PATH=bot.db       # optional, default: bot.db
-HTTP_PORT=8080             # optional, default: 8080
 ```
 
-## Run locally
+## Make commands
 
-```sh
-go run ./cmd/bot
-```
+| Command | Description |
+|---------|-------------|
+| `make run` | Run locally in sandbox mode (no token or DB needed) |
+| `make build` | Compile binary for current OS → `bin/bot` |
+| `make build-linux` | Cross-compile for Linux amd64 → `bin/bot-linux` |
+| `make deploy SERVER=opc@<ip>` | Build, upload binary + service file, reload and restart |
+| `make tidy` | Tidy Go modules |
+| `make clean` | Remove `bin/` |
 
-Sandbox mode (no token required):
-
-```sh
-make run
-```
-
-## Deploy
-
+Deploy example:
 ```sh
 make deploy SERVER=opc@143.47.97.133
 ```
 
-This builds for Linux, uploads to `/tmp/bot-new`, moves it to `/usr/local/bin/weekly-planner-bot`, fixes the SELinux context, and restarts the service.
+## Server layout (Oracle Cloud AMD Micro, OL9, Ashburn)
 
-## Server layout
+SSH: `ssh opc@143.47.97.133`
 
 | Path | What |
 |------|------|
 | `/usr/local/bin/weekly-planner-bot` | binary |
-| `/etc/weekly-planner.env` | env config (BOT_TOKEN etc.) |
 | `/etc/systemd/system/weekly-planner.service` | systemd unit |
-| `/var/lib/weekly-planner/bot.db` | database |
+| `/etc/weekly-planner/env` | env config (BOT_TOKEN etc.) |
+| `/var/lib/weekly-planner/bot.db` | SQLite database |
+| `/var/lib/weekly-planner/bot.db-shm` | SQLite shared memory (WAL mode) |
+| `/var/lib/weekly-planner/bot.db-wal` | SQLite WAL file |
 
-## Server setup (first time)
-
-```sh
-scp .env opc@143.47.97.133:/etc/weekly-planner.env
-```
-
-Systemd unit (`/etc/systemd/system/weekly-planner.service`):
-
-```ini
-[Unit]
-Description=Weekly Planner Bot
-After=network.target
-
-[Service]
-User=opc
-EnvironmentFile=/etc/weekly-planner.env
-ExecStart=/usr/local/bin/weekly-planner-bot
-WorkingDirectory=/var/lib/weekly-planner
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
+## Service management
 
 ```sh
-sudo mkdir -p /var/lib/weekly-planner
-sudo systemctl daemon-reload
-sudo systemctl enable --now weekly-planner
+sudo systemctl status weekly-planner
+sudo systemctl restart weekly-planner
+sudo journalctl -u weekly-planner -f
 ```
 
 ## DB backup before touching anything
 
 ```sh
-ssh opc@143.47.97.133 "sudo cp /var/lib/weekly-planner/bot.db /var/lib/weekly-planner/bot.db.bak"
+ssh opc@143.47.97.133 "cp /var/lib/weekly-planner/bot.db /var/lib/weekly-planner/bot.db.bak"
 ```
