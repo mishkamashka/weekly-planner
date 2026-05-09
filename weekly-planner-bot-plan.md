@@ -109,6 +109,11 @@ If friends-phase turns into something real and Oracle's reclamation rules get an
    sudo restorecon -v /usr/local/bin/weekly-planner-bot
    ```
 4. **`/var/lib/weekly-planner` owned by root** — service runs as `opc` and can't write the SQLite file. Fix: `sudo chown opc:opc /var/lib/weekly-planner`
+5. **`dnf-makecache.timer` causes OOM crashes** — Oracle Linux runs an automatic package cache refresh in the background. On a 1 GB instance it consumes ~730 MB RAM, exhausts swap, and the OOM killer fires — freezing the bot for 20-30 minutes. Disable it permanently:
+   ```bash
+   sudo systemctl disable --now dnf-makecache.timer
+   ```
+   Update packages manually with `sudo dnf update` when needed.
 
 #### Deploy update script (run locally)
 ```bash

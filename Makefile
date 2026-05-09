@@ -29,7 +29,7 @@ deploy: build-linux
 		sudo mv /tmp/weekly-planner.service /etc/systemd/system/weekly-planner.service && \
 		sudo restorecon /etc/systemd/system/weekly-planner.service && \
 		sudo systemctl daemon-reload && \
-		sudo systemctl enable --now weekly-planner || sudo systemctl restart weekly-planner"
+		sudo systemctl enable weekly-planner && sudo systemctl restart weekly-planner"
 
 ## tidy: tidy go modules
 tidy:

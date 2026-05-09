@@ -40,7 +40,12 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	}
 
 	tg, err := tgbot.New(token,
-		tgbot.WithHTTPClient(30*time.Second, &http.Client{Timeout: 60 * time.Second}),
+		tgbot.WithHTTPClient(30*time.Second, &http.Client{
+			Timeout: 60 * time.Second,
+			Transport: &http.Transport{
+				IdleConnTimeout: 90 * time.Second,
+			},
+		}),
 		tgbot.WithMiddlewares(b.ownerOnly()),
 		tgbot.WithDefaultHandler(b.handleDefault),
 	)
