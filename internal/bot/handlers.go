@@ -81,6 +81,15 @@ func (b *Bot) handleDefault(ctx context.Context, tg *tgbot.Bot, update *models.U
 		b.setState(telegramID, stateIdle)
 		b.saveSundayTime(ctx, tg, update.Message.Chat.ID, telegramID, text)
 
+	case stateAddingPresetTitle:
+		if text == "" {
+			return
+		}
+		b.setState(telegramID, stateIdle)
+		b.setPendingPreset(telegramID, text)
+		b.initPendingPresetDays(telegramID)
+		b.presetDayPrompt(ctx, tg, update.Message.Chat.ID, text)
+
 	default:
 		tg.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID:      update.Message.Chat.ID,

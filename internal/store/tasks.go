@@ -16,6 +16,7 @@ type AssignedTask struct {
 	UserID       int64
 	Title        string
 	Completed    bool
+	IsPreset     bool
 }
 
 func (s *Store) AddTask(userID int64, title string) (*Task, error) {
@@ -54,7 +55,7 @@ func (s *Store) GetBacklog(userID int64) ([]*Task, error) {
 
 func (s *Store) GetDayTasks(userID int64, weekStart time.Time, dayOfWeek int) ([]*AssignedTask, error) {
 	rows, err := s.db.Query(
-		`SELECT a.id, t.id, t.user_id, t.title, a.completed
+		`SELECT a.id, t.id, t.user_id, t.title, a.completed, a.preset_id IS NOT NULL
 		 FROM tasks t
 		 JOIN assignments a ON a.task_id = t.id
 		 WHERE a.user_id = ? AND a.week_start = ? AND a.day_of_week = ?
@@ -69,7 +70,7 @@ func (s *Store) GetDayTasks(userID int64, weekStart time.Time, dayOfWeek int) ([
 	var tasks []*AssignedTask
 	for rows.Next() {
 		t := &AssignedTask{}
-		if err := rows.Scan(&t.AssignmentID, &t.TaskID, &t.UserID, &t.Title, &t.Completed); err != nil {
+		if err := rows.Scan(&t.AssignmentID, &t.TaskID, &t.UserID, &t.Title, &t.Completed, &t.IsPreset); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, t)

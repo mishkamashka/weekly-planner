@@ -15,7 +15,8 @@ func mainKeyboard() *models.ReplyKeyboardMarkup {
 		Keyboard: [][]models.KeyboardButton{
 			{{Text: "➕ Add task"}, {Text: "📌 Today"}},
 			{{Text: "📋 Backlog"}, {Text: "📅 Week"}},
-			{{Text: "📆 Plan week"}, {Text: "⚙️ Settings"}},
+			{{Text: "📆 Plan week"}, {Text: "🔁 Presets"}},
+			{{Text: "⚙️ Settings"}},
 		},
 		ResizeKeyboard: true,
 	}
@@ -89,12 +90,112 @@ func dayTasksKeyboard(tasks []*store.AssignedTask, dayOfWeek int) *models.Inline
 		}
 		aid := strconv.FormatInt(t.AssignmentID, 10)
 		tid := strconv.FormatInt(t.TaskID, 10)
+		var secondBtn models.InlineKeyboardButton
+		if t.IsPreset {
+			secondBtn = models.InlineKeyboardButton{Text: "⏭ skip", CallbackData: "ps:" + aid + ":" + tid + ":" + day}
+		} else {
+			secondBtn = models.InlineKeyboardButton{Text: "↩ backlog", CallbackData: "bl:" + aid + ":" + tid + ":" + day}
+		}
 		rows = append(rows, []models.InlineKeyboardButton{
 			{Text: "✅ " + truncate(t.Title, 25), CallbackData: "ck:" + aid + ":" + day},
-			{Text: "↩ backlog", CallbackData: "bl:" + aid + ":" + tid + ":" + day},
+			secondBtn,
 		})
 	}
 	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+type presetGroup struct {
+	title   string
+	days    []int
+	active  bool
+	firstID int64
+}
+
+func groupPresets(presets []*store.Preset) []presetGroup {
+	// presets are ordered by title, day_of_week — so same-title rows are adjacent
+	var groups []presetGroup
+	for _, p := range presets {
+		if len(groups) > 0 && groups[len(groups)-1].title == p.Title {
+			groups[len(groups)-1].days = append(groups[len(groups)-1].days, p.DayOfWeek)
+		} else {
+			groups = append(groups, presetGroup{
+				title:   p.Title,
+				days:    []int{p.DayOfWeek},
+				active:  p.Active,
+				firstID: p.ID,
+			})
+		}
+	}
+	return groups
+}
+
+func presetsText(presets []*store.Preset) string {
+	if len(presets) == 0 {
+		return "🔁 <b>Recurring presets</b>\n\nNo presets yet. Tap ➕ to add one.\n\nActive presets are applied automatically when you run /plan."
+	}
+	return "🔁 <b>Recurring presets</b>\n\nActive presets are applied automatically when you run /plan.\nTap a preset to toggle it on/off."
+}
+
+func presetsKeyboard(presets []*store.Preset) *models.InlineKeyboardMarkup {
+	dayNames := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	rows := [][]models.InlineKeyboardButton{}
+	for _, g := range groupPresets(presets) {
+		icon := "✅"
+		if !g.active {
+			icon = "⬜"
+		}
+		dayParts := make([]string, len(g.days))
+		for i, d := range g.days {
+			dayParts[i] = dayNames[d]
+		}
+		label := fmt.Sprintf("%s %s (%s)", icon, truncate(g.title, 18), strings.Join(dayParts, ", "))
+		id := strconv.FormatInt(g.firstID, 10)
+		rows = append(rows, []models.InlineKeyboardButton{
+			{Text: label, CallbackData: "pr:toggle:" + id},
+			{Text: "🗑", CallbackData: "pr:del:" + id},
+		})
+	}
+	rows = append(rows, []models.InlineKeyboardButton{
+		{Text: "➕ Add preset", CallbackData: "pr:new"},
+	})
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func presetDayMultiKeyboard(selected [7]bool) *models.InlineKeyboardMarkup {
+	labels := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	row1 := make([]models.InlineKeyboardButton, 5)
+	for i := 0; i < 5; i++ {
+		label := labels[i]
+		if selected[i] {
+			label = "✅ " + label
+		}
+		row1[i] = models.InlineKeyboardButton{Text: label, CallbackData: "pr:day:" + strconv.Itoa(i)}
+	}
+	row2 := make([]models.InlineKeyboardButton, 2)
+	for i := 5; i < 7; i++ {
+		label := labels[i]
+		if selected[i] {
+			label = "✅ " + label
+		}
+		row2[i-5] = models.InlineKeyboardButton{Text: label, CallbackData: "pr:day:" + strconv.Itoa(i)}
+	}
+	count := 0
+	for _, s := range selected {
+		if s {
+			count++
+		}
+	}
+	saveLabel := "Save"
+	if count > 0 {
+		saveLabel = fmt.Sprintf("✅ Save (%d)", count)
+	}
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			row1,
+			row2,
+			{{Text: saveLabel, CallbackData: "pr:day:done"}},
+		},
+	}
 }
 
 func planNextKeyboard(taskID int64) *models.InlineKeyboardMarkup {

@@ -93,7 +93,9 @@ func (s *Scheduler) registerUser(u *store.User) error {
 		return fmt.Errorf("add morning job: %w", err)
 	}
 
+	userID := u.ID
 	sundayID, err := s.cron.AddFunc(sundaySpec, func() {
+		s.store.ApplyPresetsForWeek(userID, nextWeekMonday())
 		s.sendText(context.Background(), telegramID,
 			"📋 Time to plan your week! Open 📅 Week to assign tasks to days.")
 	})
@@ -131,4 +133,13 @@ func todayDayOfWeek() int {
 		return 6
 	}
 	return w - 1
+}
+
+func nextWeekMonday() time.Time {
+	now := time.Now()
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	return now.AddDate(0, 0, 8-weekday).Truncate(24 * time.Hour)
 }

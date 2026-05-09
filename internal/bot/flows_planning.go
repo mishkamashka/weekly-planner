@@ -22,6 +22,15 @@ func (b *Bot) handlePlan(ctx context.Context, tg *tgbot.Bot, update *models.Upda
 		return
 	}
 
+	if n, err := b.store.ApplyPresetsForWeek(user.ID, nextWeekMonday()); err != nil {
+		slog.Error("applyPresetsForWeek failed", "err", err)
+	} else if n > 0 {
+		tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID: chatID,
+			Text:   fmt.Sprintf("🔁 Applied %d recurring task(s) for next week.", n),
+		})
+	}
+
 	tasks, err := b.store.GetBacklog(user.ID)
 	if err != nil {
 		slog.Error("getBacklog failed", "err", err)
@@ -31,7 +40,7 @@ func (b *Bot) handlePlan(ctx context.Context, tg *tgbot.Bot, update *models.Upda
 	if len(tasks) == 0 {
 		tg.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID: chatID,
-			Text:   "Your backlog is empty — nothing to plan! Add tasks first.",
+			Text:   "Your backlog is empty — nothing left to assign!",
 		})
 		return
 	}

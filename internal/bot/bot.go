@@ -21,22 +21,27 @@ const (
 	stateSettingTimezone
 	stateSettingMorningTime
 	stateSettingSundayTime
+	stateAddingPresetTitle
 )
 
 type Bot struct {
-	tg      *tgbot.Bot
-	ownerID int64
-	store   *store.Store
-	sched   *scheduler.Scheduler
-	mu      sync.Mutex
-	states  map[int64]userState
+	tg                 *tgbot.Bot
+	ownerID            int64
+	store              *store.Store
+	sched              *scheduler.Scheduler
+	mu                 sync.Mutex
+	states             map[int64]userState
+	pendingPreset      map[int64]string
+	pendingPresetDays  map[int64][7]bool
 }
 
 func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	b := &Bot{
-		ownerID: ownerID,
-		store:   store,
-		states:  make(map[int64]userState),
+		ownerID:            ownerID,
+		store:              store,
+		states:             make(map[int64]userState),
+		pendingPreset:      make(map[int64]string),
+		pendingPresetDays:  make(map[int64][7]bool),
 	}
 
 	tg, err := tgbot.New(token,
@@ -69,11 +74,15 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	}
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/plan", tgbot.MatchTypeExact, b.handlePlan)
 	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "📆 Plan week", tgbot.MatchTypeExact, b.handlePlan)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "/presets", tgbot.MatchTypeExact, b.handlePresets)
+	tg.RegisterHandler(tgbot.HandlerTypeMessageText, "🔁 Presets", tgbot.MatchTypeExact, b.handlePresets)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "t:", tgbot.MatchTypePrefix, b.handleTaskCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "ck:", tgbot.MatchTypePrefix, b.handleCompleteCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "bl:", tgbot.MatchTypePrefix, b.handleBacklogCallback)
+	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "ps:", tgbot.MatchTypePrefix, b.handlePresetSkipCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "set:", tgbot.MatchTypePrefix, b.handleSettingsCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "pn:", tgbot.MatchTypePrefix, b.handlePlanNextCallback)
+	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "pr:", tgbot.MatchTypePrefix, b.handlePresetCallback)
 
 	return b, nil
 }
