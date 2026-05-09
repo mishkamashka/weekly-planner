@@ -83,6 +83,7 @@ func New(token string, ownerID int64, store *store.Store) (*Bot, error) {
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "set:", tgbot.MatchTypePrefix, b.handleSettingsCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "pn:", tgbot.MatchTypePrefix, b.handlePlanNextCallback)
 	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "pr:", tgbot.MatchTypePrefix, b.handlePresetCallback)
+	tg.RegisterHandler(tgbot.HandlerTypeCallbackQueryData, "qa:", tgbot.MatchTypePrefix, b.handleQuickAssignCallback)
 
 	return b, nil
 }

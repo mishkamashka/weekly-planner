@@ -93,7 +93,21 @@ func (s *Scheduler) registerUser(u *store.User) error {
 		return fmt.Errorf("add morning job: %w", err)
 	}
 
+	midnightSpec, err := cronSpec(u.Timezone, "00:00", "* * *")
+	if err != nil {
+		s.cron.Remove(morningID)
+		return fmt.Errorf("midnight spec: %w", err)
+	}
+
 	userID := u.ID
+	midnightID, err := s.cron.AddFunc(midnightSpec, func() {
+		s.store.RestoreOverdueTasks(userID)
+	})
+	if err != nil {
+		s.cron.Remove(morningID)
+		return fmt.Errorf("add midnight job: %w", err)
+	}
+
 	sundayID, err := s.cron.AddFunc(sundaySpec, func() {
 		s.store.ApplyPresetsForWeek(userID, nextWeekMonday())
 		s.sendText(context.Background(), telegramID,
@@ -101,11 +115,12 @@ func (s *Scheduler) registerUser(u *store.User) error {
 	})
 	if err != nil {
 		s.cron.Remove(morningID)
+		s.cron.Remove(midnightID)
 		return fmt.Errorf("add sunday job: %w", err)
 	}
 
 	s.mu.Lock()
-	s.entries[u.ID] = append(s.entries[u.ID], morningID, sundayID)
+	s.entries[u.ID] = append(s.entries[u.ID], morningID, midnightID, sundayID)
 	s.mu.Unlock()
 
 	return nil

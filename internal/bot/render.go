@@ -233,6 +233,40 @@ func planNextKeyboard(taskID int64) *models.InlineKeyboardMarkup {
 	}
 }
 
+func quickAssignKeyboard(taskID int64) *models.InlineKeyboardMarkup {
+	dayNames := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	today := todayDayOfWeek()
+	id := strconv.FormatInt(taskID, 10)
+
+	var btns []models.InlineKeyboardButton
+	for i := 0; i < 7; i++ {
+		day := (today + i) % 7
+		label := dayNames[day]
+		if i == 0 {
+			label = "Today"
+		}
+		btns = append(btns, models.InlineKeyboardButton{
+			Text:         label,
+			CallbackData: "qa:" + id + ":" + strconv.Itoa(day),
+		})
+	}
+	btns = append(btns, models.InlineKeyboardButton{
+		Text:         "↩ Backlog",
+		CallbackData: "qa:" + id + ":k",
+	})
+
+	var rows [][]models.InlineKeyboardButton
+	for len(btns) > 0 {
+		n := 4
+		if n > len(btns) {
+			n = len(btns)
+		}
+		rows = append(rows, btns[:n])
+		btns = btns[n:]
+	}
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
 func truncate(s string, max int) string {
 	r := []rune(s)
 	if len(r) <= max {

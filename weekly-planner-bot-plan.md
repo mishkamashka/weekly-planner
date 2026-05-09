@@ -245,7 +245,7 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 - [x] `/add <text>` shortcut also works.
 - [x] `/backlog` renders list with per-row inline keyboard: `Mon Tue Wed Thu Fri Sat Sun Archive`.
 - [x] Day button → creates `assignments` row for the current week, flips task status to `assigned`.
-- [x] "📅 Week" button shows day picker; tapping a day lists that day's tasks.
+- [x] "📅 Week" button shows day picker; tapping a day lists that day's tasks. Week keyboard shows rolling 7 days from today (wraps to next week).
 
 **Done when:** you can add tasks and shove them around the week via buttons.
 
@@ -267,16 +267,18 @@ Each phase should be shippable and dogfoodable on its own. Don't move to the nex
 **Done when:** the bot pings you unprompted at 8am with your list.
 
 ### Phase 4 — Weekly planning flow (1 day)
-- [ ] `/plan` starts a conversational flow: shows each backlog item, inline buttons `Mon Tue Wed Thu Fri Sat Sun Skip Archive`.
-- [ ] Tracks flow state per-user in memory (map keyed by telegram_id).
+- [x] `/plan` starts a conversational flow: shows each backlog item, inline buttons `Mon Tue Wed Thu Fri Sat Sun Skip Archive`.
+- [x] Tracks flow state per-user in memory (map keyed by telegram_id).
 - [ ] Final screen: summary of the week with ability to swap days.
 
 **Done when:** Sunday evening feels like a 5-minute ritual instead of a chore.
 
 ### Phase 5 — Recurring presets (½ day)
-- [ ] `presets` table.
-- [ ] `/preset` menu: list, add ("Training" + day), remove, toggle active.
-- [ ] On new week rollover (or at start of `/plan`), auto-insert assignment rows from active presets.
+- [x] `presets` table.
+- [x] `/presets` menu (🔁 button): list grouped by title with all days, add with multi-day picker, toggle active, delete.
+- [x] On new week rollover and at start of `/plan`, auto-insert assignment rows from active presets.
+- [x] Preset tasks show ⏭ skip instead of ↩ backlog — dismisses that week's instance without affecting the preset.
+- [x] Sunday scheduler applies presets automatically.
 
 **Done when:** Tuesday training shows up every week without you thinking about it.
 
@@ -304,7 +306,7 @@ Then fix the top 3.
 - **Sunday retrospective + capacity learning.** Show planned vs done; track rolling 4-week average completion rate; suggest next week's budget.
 - **Priorities.** Parse `#p1`/`#p2`/`#p3` (or `!` prefix) from task title; sort backlog by priority so important tasks surface first. UX TBD — options: inline buttons on add, or just title convention.
 - **Backlog UX at scale.** Once backlog exceeds ~10 tasks the current "one message per task" approach gets noisy. Options to consider: paginated list with prev/next buttons, grouped by priority, or a single message with a scrollable numbered list + separate action prompt.
-- **Carry-over automation.** Unchecked items Sunday → back to backlog or auto-assigned to same day next week.
+- ~~**Carry-over automation.**~~ ✅ Done: midnight cron job restores uncompleted non-preset tasks to backlog daily (timezone-aware). Assignment rows kept for history.
 - **Inline backlog assignment from anywhere.** When you add a task, immediately ask "which day?"
 - **Weekly export.** `/export` dumps the week as markdown or CSV.
 - **Web dashboard.** Read-only at first; a small Go HTTP handler serving your data as a calendar view.

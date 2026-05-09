@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/mishkamashka/weekly-planner/internal/store"
 )
 
 func (b *Bot) handlePlan(ctx context.Context, tg *tgbot.Bot, update *models.Update) {
@@ -20,6 +22,10 @@ func (b *Bot) handlePlan(ctx context.Context, tg *tgbot.Bot, update *models.Upda
 	if err != nil {
 		slog.Error("getOrCreateUser failed", "err", err)
 		return
+	}
+
+	if err := b.store.RestoreOverdueTasks(user.ID); err != nil {
+		slog.Error("restoreOverdueTasks failed", "err", err)
 	}
 
 	if n, err := b.store.ApplyPresetsForWeek(user.ID, nextWeekMonday()); err != nil {
@@ -102,6 +108,9 @@ func (b *Bot) handlePlanNextCallback(ctx context.Context, tg *tgbot.Bot, update 
 			return
 		}
 		if err := b.store.AssignTask(taskID, user.ID, nextWeekMonday(), dayOfWeek); err != nil {
+			if errors.Is(err, store.ErrAlreadyAssigned) {
+				return
+			}
 			slog.Error("assignTask failed", "err", err)
 			return
 		}
